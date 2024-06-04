@@ -93,6 +93,26 @@ def redness_grade(img_path):
  
     return 100-redness_grade
 
+def dark_circle_analysis(img_path):
+    img = cv2.imread(img_path)
+    img = cv2.resize(img, (421, 612))
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (3, 3), 0)
+    circles = cv2.HoughCircles(blur, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=30, minRadius=0, maxRadius=0)
+    dark_circle_count = 0
+    if circles is not None:
+        circles = np.uint16(np.around(circles))
+        for i in circles[0, :]:
+            if i[2] > 10 and i[2] < 50:
+                cv2.circle(img, (i[0], i[1]), i[2], (0, 255, 0), 2)
+                dark_circle_count += 1
+    else:
+        return 80
+    dark_circle_grade = min(100, dark_circle_count)
+    return 100 - dark_circle_grade
+
+
+
 get_model()
 
 img_put_args = reqparse.RequestParser()
@@ -131,7 +151,8 @@ class SkinMetrics(Resource):
         tone = identify_skin_tone(file_path, dataset=skin_tone_dataset)
         wrinkle_grade = wrinkle_analysis(file_path)
         redness_grade_value = redness_grade(file_path)
-        return {'type': skin_type, 'tone': str(tone), 'acne': acne_type, 'wrinkle_grade': wrinkle_grade, 'redness_grade': redness_grade_value}, 200
+        darkCircle_grade = dark_circle_analysis(file_path)
+        return {'type': skin_type, 'tone': str(tone), 'acne': acne_type, 'wrinkle_grade': wrinkle_grade, 'redness_grade': redness_grade_value, 'darkCircle_grade':darkCircle_grade}, 200
         # return {'type': skin_type, 'tone': str(tone), 'acne': acne_type, 'wrinkle_grade': wrinkle_grade}, 200
 
 api.add_resource(SkinMetrics, "/upload")

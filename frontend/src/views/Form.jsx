@@ -33,7 +33,8 @@ let data = {
     type: "Oily",
     acne: "Moderate",
     wrinkle_grade: 0, 
-    redness_grade: 0
+    redness_grade: 0,
+    darkCircle_grade: 0
 }
 const skinTypes = ["All", "Oily", "Normal", "Dry"]
 const acnes = ['Low', 'Moderate', 'Severe']
@@ -47,8 +48,8 @@ const Form = () => {
         console.log(data)
     }
     console.log("After the condtional : ", data)
-    const {type, tone, acne, wrinkle_grade, redness_grade} = data;
-    console.log("Prefill : ", type, tone, acne, wrinkle_grade, redness_grade)
+    const {type, tone, acne, wrinkle_grade, redness_grade, darkCircle_grade} = data;
+    console.log("Prefill : ", type, tone, acne, wrinkle_grade, redness_grade, darkCircle_grade)
 
     const [currType, setCurrType] = useState(type)
     const [currTone, setCurrTone] = useState(parseInt(tone))
@@ -116,6 +117,9 @@ const Form = () => {
                 </Typography>
                 <Typography variant="h6" component="div" textAlign="center">
                     Redness Grade: {redness_grade}
+                </Typography>
+                <Typography variant="h6" component="div" textAlign="center">
+                    Dark Circle Grade: {darkCircle_grade}
                 </Typography>
                 {/* 
             <FormControl fullWidth>
