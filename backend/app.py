@@ -15,6 +15,7 @@ import werkzeug
 from models.recommender.rec import recs_essentials, makeup_recommendation
 import base64
 from io import BytesIO
+import matplotlib.pyplot as plt
 
 app = Flask(__name__)
 api = Api(app)
@@ -24,11 +25,16 @@ class_names2 = ['Low', 'Moderate', 'Severe']
 skin_tone_dataset = 'models/skin_tone/skin_tone_dataset.csv'
 
 def get_model():
-    global model1, model2
+    global model1, model2, age
     model1 = load_model('./models/skin_model')
     print('Model 1 loaded')
     model2 = load_model('./models/acne_model')
     print("Model 2 loaded!")
+
+    age1 = "age_deploy.prototxt"
+    age2 = "age_net.caffemodel"
+    age = cv2.dnn.readNet(age2, age1)
+    print("Age model loaded!")
 
 def load_image(img_path):
     img = image.load_img(img_path, target_size=(224, 224))
@@ -36,6 +42,20 @@ def load_image(img_path):
     img_tensor = np.expand_dims(img_tensor, axis=0)
     img_tensor /= 255.0
     return img_tensor
+
+def predict_age(img_path):
+    model_mean_values = (78.4263377603, 87.7689143744, 114.895847746)
+    age_list = ['(0-2)', '(4-6)', '(15-20)', '(21-24)','(25-32)', '(38-43)', '(48-53)', '(60-100)']
+
+    img = cv2.imread(img_path)
+    face_blob = cv2.dnn.blobFromImage(image=img, scalefactor=1.0, size=(227, 227), mean=model_mean_values, swapRB=False)
+    
+    age.setInput(face_blob)
+    age_preds = age.forward()
+    age_label = age_list[age_preds[0].argmax()]
+
+    return age_label
+
 
 def prediction_skin(img_path):
     new_image = load_image(img_path)
@@ -98,18 +118,30 @@ def dark_circle_analysis(img_path):
     img = cv2.resize(img, (421, 612))
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (3, 3), 0)
-    circles = cv2.HoughCircles(blur, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=30, minRadius=0, maxRadius=0)
+    circles = cv2.HoughCircles(
+        blur, 
+        cv2.HOUGH_GRADIENT, 
+        1, 
+        20, 
+        param1=50, 
+        param2=30, 
+        minRadius=10, 
+        maxRadius=50
+    )
     dark_circle_count = 0
     if circles is not None:
         circles = np.uint16(np.around(circles))
         for i in circles[0, :]:
-            if i[2] > 10 and i[2] < 50:
+            if 10 < i[2] < 50:
                 cv2.circle(img, (i[0], i[1]), i[2], (0, 255, 0), 2)
                 dark_circle_count += 1
+    if dark_circle_count > 5: 
+        dark_circle_grade = 60
     else:
-        return 80
-    dark_circle_grade = min(100, dark_circle_count)
-    return 100 - dark_circle_grade
+        dark_circle_grade = 100 - (dark_circle_count * 10)
+    dark_circle_grade = min(max(dark_circle_grade, 0), 100)
+    
+    return dark_circle_grade
 
 
 
@@ -152,7 +184,8 @@ class SkinMetrics(Resource):
         wrinkle_grade = wrinkle_analysis(file_path)
         redness_grade_value = redness_grade(file_path)
         darkCircle_grade = dark_circle_analysis(file_path)
-        return {'type': skin_type, 'tone': str(tone), 'acne': acne_type, 'wrinkle_grade': wrinkle_grade, 'redness_grade': redness_grade_value, 'darkCircle_grade':darkCircle_grade}, 200
+        age = predict_age(file_path) 
+        return {'type': skin_type, 'tone': str(tone), 'acne': acne_type, 'wrinkle_grade': wrinkle_grade, 'redness_grade': redness_grade_value, 'darkCircle_grade':darkCircle_grade, 'age': age}, 200
         # return {'type': skin_type, 'tone': str(tone), 'acne': acne_type, 'wrinkle_grade': wrinkle_grade}, 200
 
 api.add_resource(SkinMetrics, "/upload")
